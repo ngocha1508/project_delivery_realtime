@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import random
 import time
-import plotly.graph_objects as go
 
 # Thiết lập tiêu đề ứng dụng
 st.set_page_config(page_title="Ứng dụng Giao Hàng Theo Thời Gian Thực", layout="wide")
@@ -68,45 +67,12 @@ def display_order_info(order):
     current_position_index = order["current_position_index"]
     
     if order['status'] == "Đang vận chuyển":
-        # Lấy dữ liệu tuyến đường từ đầu đến vị trí hiện tại
-        route_df = pd.DataFrame(route[:current_position_index + 1])
-        
-        # Tạo biểu đồ plotly cho tuyến đường
-        fig = go.Figure()
+        # Hiển thị bản đồ với quãng đường từ đầu đến vị trí hiện tại
+        route_df = pd.DataFrame(route[:current_position_index + 1])  # Dữ liệu tuyến đường từ đầu đến vị trí hiện tại
+        st.map(route_df)
 
-        # Thêm tuyến đường với đường màu đỏ
-        fig.add_trace(go.Scattermapbox(
-            mode = "lines+markers",
-            lon = route_df["longitude"],
-            lat = route_df["latitude"],
-            marker = {'size': 10, 'color': "red"},
-            line = {'width': 4, 'color': "red"},
-            name = "Quãng đường đã di chuyển"
-        ))
-
-        # Thêm biểu tượng xe giao hàng ở vị trí hiện tại
-        current_position = route[current_position_index]
-        fig.add_trace(go.Scattermapbox(
-            mode="markers+text",
-            lon=[current_position["longitude"]],
-            lat=[current_position["latitude"]],
-            marker={'size': 20, 'symbol': "car", 'color': "blue"},
-            text=["🚚 Vị trí hiện tại"],
-            textposition="top right",
-            name="Xe giao hàng"
-        ))
-
-        # Cài đặt bản đồ
-        fig.update_layout(
-            mapbox_style="open-street-map",
-            mapbox_center={"lat": current_position["latitude"], "lon": current_position["longitude"]},
-            mapbox_zoom=12,
-            height=500,
-            margin={"r":0,"t":0,"l":0,"b":0}
-        )
-
-        # Hiển thị biểu đồ
-        st.plotly_chart(fig)
+        # Hiển thị biểu đồ tuyến đường để theo dõi tiến trình giao hàng
+        st.line_chart(route_df, x="longitude", y="latitude")
 
     st.write("---")
 
@@ -149,5 +115,3 @@ while True:
     # Dừng lại một khoảng thời gian trước khi tải lại
     time.sleep(refresh_rate)
     st.experimental_rerun()
-
-
