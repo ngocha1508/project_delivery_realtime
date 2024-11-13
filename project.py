@@ -1,11 +1,15 @@
 import streamlit as st
 import pandas as pd
 import random
-import time
+from streamlit_autorefresh import st_autorefresh
 
 # Thiết lập tiêu đề ứng dụng
 st.set_page_config(page_title="Ứng dụng Giao Hàng Theo Thời Gian Thực", layout="wide")
 st.title("Ứng dụng Giao Hàng Theo Thời Gian Thực 🚚")
+
+# Tự động làm mới trang mỗi lần sau khi chọn thời gian làm mới
+refresh_rate = st.sidebar.slider("Chọn thời gian làm mới (giây):", 5, 60, 10) * 1000  # Chuyển đổi giây thành mili giây
+st_autorefresh(interval=refresh_rate, key="auto_refresh")
 
 # Kiểm tra và khởi tạo dữ liệu đơn hàng trong session_state nếu chưa có
 if 'orders' not in st.session_state:
@@ -93,12 +97,6 @@ with st.sidebar:
         else:
             st.error("Vui lòng nhập đầy đủ thông tin đơn hàng.")
 
-# Thanh trượt để cài đặt thời gian làm mới
-with st.sidebar:
-    st.header("Cài đặt làm mới")
-    refresh_rate = st.slider("Chọn thời gian làm mới (giây):", 5, 60, 10)
-    st.write("Ứng dụng sẽ làm mới mỗi", refresh_rate, "giây.")
-    
 # Cập nhật vị trí của các đơn hàng đang vận chuyển
 update_order_location()
 
@@ -109,7 +107,3 @@ st.text("Ứng dụng sẽ tự động làm mới để cập nhật trạng th
 # Hiển thị từng đơn hàng trong danh sách
 for order in st.session_state.orders:
     display_order_info(order)
-
-# Tự động làm mới trang sau thời gian đã chọn
-time.sleep(refresh_rate)
-st.experimental_rerun()
