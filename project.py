@@ -89,6 +89,7 @@ with st.sidebar:
         if order_id and customer_name and address and estimated_delivery_time:
             add_order(order_id, customer_name, address, status, estimated_delivery_time)
             st.success(f"Đơn hàng #{order_id} đã được thêm.")
+            st.experimental_rerun()  # Tải lại ứng dụng để cập nhật đơn hàng mới
         else:
             st.error("Vui lòng nhập đầy đủ thông tin đơn hàng.")
 
@@ -97,21 +98,18 @@ with st.sidebar:
     st.header("Cài đặt làm mới")
     refresh_rate = st.slider("Chọn thời gian làm mới (giây):", 5, 60, 10)
     st.write("Ứng dụng sẽ làm mới mỗi", refresh_rate, "giây.")
+    
+# Cập nhật vị trí của các đơn hàng đang vận chuyển
+update_order_location()
 
 # Hiển thị danh sách đơn hàng
 st.header("Danh sách đơn hàng đang vận chuyển")
 st.text("Ứng dụng sẽ tự động làm mới để cập nhật trạng thái giao hàng.")
 
-# Vòng lặp thời gian thực
-# Cập nhật vị trí đơn hàng và hiển thị danh sách đơn hàng
-while True:
-    # Cập nhật vị trí của các đơn hàng
-    update_order_location()
+# Hiển thị từng đơn hàng trong danh sách
+for order in st.session_state.orders:
+    display_order_info(order)
 
-    # Hiển thị từng đơn hàng trong danh sách
-    for order in st.session_state.orders:
-        display_order_info(order)
-
-    # Dừng lại một khoảng thời gian trước khi tải lại
-    time.sleep(refresh_rate)
-    st.experimental_rerun()
+# Tự động làm mới trang sau thời gian đã chọn
+time.sleep(refresh_rate)
+st.experimental_rerun()
