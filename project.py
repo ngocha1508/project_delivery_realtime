@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import random
 import time
+import plotly.graph_objects as go
 
 # Thiết lập tiêu đề ứng dụng
 st.set_page_config(page_title="Ứng dụng Giao Hàng Theo Thời Gian Thực", layout="wide")
@@ -11,22 +12,50 @@ st.title("Ứng dụng Giao Hàng Theo Thời Gian Thực 🚚")
 if 'orders' not in st.session_state:
     st.session_state.orders = []
 
-# Hàm để thêm đơn hàng mới vào danh sách
+# Kiểm tra và khởi tạo tuyến đường mẫu cho các đơn hàng
+if 'routes' not in st.session_state:
+    st.session_state.routes = {}
+
+# Hàm để thêm đơn hàng mới vào danh sách và tạo tuyến đường mẫu
 def add_order(order_id, customer_name, address, status, estimated_delivery_time):
+    # Tạo vị trí giả lập cho điểm bắt đầu và điểm kết thúc
+    start_location = {"latitude": 10.762622, "longitude": 106.660172}
+    end_location = {"latitude": start_location["latitude"] + random.uniform(0.01, 0.05),
+                    "longitude": start_location["longitude"] + random.uniform(0.01, 0.05)}
+
+    # Lưu tuyến đường mẫu (danh sách các điểm từ start đến end)
+    route = [start_location]
+    for i in range(10):  # Giả lập 10 điểm trên tuyến đường
+        lat_step = (end_location["latitude"] - start_location["latitude"]) / 10
+        lon_step = (end_location["longitude"] - start_location["longitude"]) / 10
+        route.append({
+            "latitude": start_location["latitude"] + lat_step * (i + 1),
+            "longitude": start_location["longitude"] + lon_step * (i + 1)
+        })
+    st.session_state.routes[order_id] = route
+
+    # Thêm đơn hàng mới vào danh sách
     new_order = {
         "order_id": order_id,
         "customer_name": customer_name,
         "address": address,
         "status": status,
         "estimated_delivery_time": estimated_delivery_time,
-        "current_location": {
-            "latitude": 10.762622 + random.uniform(-0.01, 0.01),
-            "longitude": 106.660172 + random.uniform(-0.01, 0.01)
-        }
+        "current_position_index": 0  # Chỉ mục hiện tại của vị trí trên tuyến đường
     }
     st.session_state.orders.append(new_order)
 
-# Hàm để hiển thị dữ liệu đơn hàng
+# Hàm để cập nhật vị trí của các đơn hàng đang vận chuyển
+def update_order_location():
+    for order in st.session_state.orders:
+        if order["status"] == "Đang vận chuyển":
+            # Cập nhật vị trí của đơn hàng trên tuyến đường
+            if order["current_position_index"] < len(st.session_state.routes[order["order_id"]]) - 1:
+                order["current_position_index"] += 1  # Di chuyển đến điểm tiếp theo trên tuyến đường
+            else:
+                order["status"] = "Đã giao"  # Nếu đã đến điểm cuối thì cập nhật trạng thái thành "Đã giao"
+
+# Hàm để hiển thị dữ liệu đơn hàng và biểu đồ tuyến đường
 def display_order_info(order):
     st.subheader(f"Đơn hàng #{order['order_id']}")
     st.write(f"**Khách hàng:** {order['customer_name']}")
@@ -34,12 +63,51 @@ def display_order_info(order):
     st.write(f"**Trạng thái:** {order['status']}")
     st.write(f"**Dự kiến giao:** {order['estimated_delivery_time']}")
 
-    # Hiển thị vị trí hiện tại
+    # Hiển thị tuyến đường từ điểm bắt đầu đến vị trí hiện tại
+    route = st.session_state.routes[order["order_id"]]
+    current_position_index = order["current_position_index"]
+    
     if order['status'] == "Đang vận chuyển":
-        st.map(pd.DataFrame([{
-            "lat": order['current_location']['latitude'],
-            "lon": order['current_location']['longitude']
-        }], index=[0]))
+        # Lấy dữ liệu tuyến đường từ đầu đến vị trí hiện tại
+        route_df = pd.DataFrame(route[:current_position_index + 1])
+        
+        # Tạo biểu đồ plotly cho tuyến đường
+        fig = go.Figure()
+
+        # Thêm tuyến đường với đường màu đỏ
+        fig.add_trace(go.Scattermapbox(
+            mode = "lines+markers",
+            lon = route_df["longitude"],
+            lat = route_df["latitude"],
+            marker = {'size': 10, 'color': "red"},
+            line = {'width': 4, 'color': "red"},
+            name = "Quãng đường đã di chuyển"
+        ))
+
+        # Thêm biểu tượng xe giao hàng ở vị trí hiện tại
+        current_position = route[current_position_index]
+        fig.add_trace(go.Scattermapbox(
+            mode="markers+text",
+            lon=[current_position["longitude"]],
+            lat=[current_position["latitude"]],
+            marker={'size': 20, 'symbol': "car", 'color': "blue"},
+            text=["🚚 Vị trí hiện tại"],
+            textposition="top right",
+            name="Xe giao hàng"
+        ))
+
+        # Cài đặt bản đồ
+        fig.update_layout(
+            mapbox_style="open-street-map",
+            mapbox_center={"lat": current_position["latitude"], "lon": current_position["longitude"]},
+            mapbox_zoom=12,
+            height=500,
+            margin={"r":0,"t":0,"l":0,"b":0}
+        )
+
+        # Hiển thị biểu đồ
+        st.plotly_chart(fig)
+
     st.write("---")
 
 # Sidebar để thêm đơn hàng mới
@@ -69,7 +137,11 @@ st.header("Danh sách đơn hàng đang vận chuyển")
 st.text("Ứng dụng sẽ tự động làm mới để cập nhật trạng thái giao hàng.")
 
 # Vòng lặp thời gian thực
+# Cập nhật vị trí đơn hàng và hiển thị danh sách đơn hàng
 while True:
+    # Cập nhật vị trí của các đơn hàng
+    update_order_location()
+
     # Hiển thị từng đơn hàng trong danh sách
     for order in st.session_state.orders:
         display_order_info(order)
@@ -77,3 +149,5 @@ while True:
     # Dừng lại một khoảng thời gian trước khi tải lại
     time.sleep(refresh_rate)
     st.experimental_rerun()
+
+
